@@ -80,3 +80,21 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           args: "--bundles nsis"
+
+      # Give the website a PERMANENT download link that never changes between
+      # versions. The NSIS bundle name embeds the version (e.g.
+      # "TRACE by LOYALTY_0.4.3_x64-setup.exe"); we copy it to a stable name and
+      # attach it to the same release, so this URL always serves the newest build:
+      #   https://github.com/smaxxey/TRACE-releases/releases/latest/download/TRACE-Setup.exe
+      # (The versioned asset + latest.json stay untouched, so auto-updates keep working.)
+      - name: Publish version-less installer for the website
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $setup = Get-ChildItem -Recurse -Path "src-tauri/target/release/bundle/nsis" -Filter "*-setup.exe" | Select-Object -First 1
+          if (-not $setup) { throw "No NSIS installer was produced" }
+          Copy-Item $setup.FullName "TRACE-Setup.exe"
+          $ver = (Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json).version
+          gh release upload "v$ver" "TRACE-Setup.exe" --clobber --repo "$env:GITHUB_REPOSITORY"
